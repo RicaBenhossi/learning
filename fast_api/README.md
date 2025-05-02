@@ -66,11 +66,6 @@ named the same way that is in the query.
 E.g.
 
 ```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-
 @app.get("/")
 def test(id: int) -> dict:
   return {
@@ -91,11 +86,6 @@ also set the type "None" as typehint too in order to show that the parameter is 
 E.g.
 
 ```python
-from fastapi import FastAPI
-
-app = FastAPI()
-
-
 @app.get("/")
 def test(id: int | None = None) -> dict:
   if id:
@@ -121,11 +111,6 @@ Both should work 😉
 E.g.
 
 ```python
-from fastapi import FastAPI, HTTPException
-
-app = FastAPI()
-
-
 @app.get("/api/client/{id}")
 def test(id: int) -> dict:
   if get_client(id):
@@ -138,7 +123,7 @@ Request with `id` path param :
 
 - `GET http://localhost:8000/api/client/2`
 
-- **OBS 1**: remember that, if you don't use typehints on function parametrers, it will be passed as string (str) 😉.
+- **OBS 1**: remember that, if you don't use typehints in function parametrers, it will be passed as string (str) 😉.
 - **OBS 2**: sometimes with path parameters, we might return only one result. In case we don't find data, we should
   return the correct HTTP Statsu code (404 in this case).
 
@@ -148,3 +133,71 @@ Unlike python, that ignores typehints, FastAPI really uses it, to validate and c
 query params is always passed as str to application, it's very important to use typehints in our function parameters. So
 the FastAPI converts and validate the parameters for us 😉.
 
+## POST Requests
+
+Every PUT operation should have a payload body with the data to be pesisted. This body is passed as a function
+parameter. Using pydantic, the payload should have all mandatory atributes.
+
+E.g.
+
+```python
+@app.post("/api/client", status_code=201)
+def test(client: Client) -> Client:
+  new_client = Client(first_name=client.first_name, last_name=client.last_name, age=client.age)
+  new_client.id = persist_client(new_client).id
+  return new_client
+```
+
+Request
+
+POST http://localhost:8000/api/cars
+
+```json
+{
+  "first_name": "Testonildo",
+  "last_name": "from Silva",
+  "age": 40
+}
+```
+
+**OBS**: note that the attribute id is optional, so we're not obligated to inform it in the request body.
+
+## PUT Requests
+
+Every PUT operation should have a payload body with the data to be pesisted. This body is passed as a function
+parameter. Using pydantic, the payload should have all mandatory atributes.
+
+E.g.
+
+```python
+@app.put("/api/client/{id}", status_code=201)
+def test(id: int, new_client: Client) -> Client:
+  client: Client = find_client_by_id(id)
+  if client:
+    client.first_name = new_client.first_name
+    client.last_name = new_client.last_name
+    client.age = new_client.age
+
+    update_cliente(client)
+
+    return client
+  else:
+    raise HTTPException(status_code=404, detail=f"There is no client with id {id}.")
+```
+
+## DELETE Requests
+
+DELETE operations should **NOT** have a payload body. However, it needs to have some identification to retrieve the data
+to be deleted.
+
+E.g.
+
+```python
+@app.delete("/api/client/{id}", status_code=204)
+def test(id: int) -> None:
+  client: Client = find_client_by_id(id)
+  if client:
+    remove_client_from_bd(client)
+  else:
+    raise HTTPException(status_code=404, detail=f"There is no client with id {id}.")
+```
