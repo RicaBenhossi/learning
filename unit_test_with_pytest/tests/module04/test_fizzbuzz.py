@@ -19,7 +19,7 @@ from src.module04.fizzbuzz import fizzbuzz, print_fizzbuzz
         (98, "98"),
     ]
 )
-def test_fizzbuzz_nomal_number(input_number, fizzbuzz_number):
+def test_fizzbuzz_normal_number(input_number, fizzbuzz_number):
     assert fizzbuzz(input_number) == fizzbuzz_number
 
 
