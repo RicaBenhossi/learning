@@ -1,7 +1,7 @@
 from unittest.mock import Mock
 
-from src.module05.stub.alarm import Alarm
-from src.module05.stub.sensor import Sensor
+from module05.stub.alarm import Alarm
+from module05.stub.sensor import Sensor
 
 
 def test_alarm_isOff_by_default():

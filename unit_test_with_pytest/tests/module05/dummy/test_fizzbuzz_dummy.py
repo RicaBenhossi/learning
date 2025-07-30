@@ -1,6 +1,6 @@
 import pytest
 
-from src.module05.dummy.fizzbuzz import fizzbuzz
+from module05.dummy.fizzbuzz import fizzbuzz
 
 
 @pytest.mark.parametrize(

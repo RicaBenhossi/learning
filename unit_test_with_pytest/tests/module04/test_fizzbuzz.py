@@ -8,7 +8,7 @@ input -> output
 '''
 import pytest
 
-from src.module04.fizzbuzz import fizzbuzz, print_fizzbuzz
+from module04.fizzbuzz import fizzbuzz, print_fizzbuzz
 
 
 @pytest.mark.parametrize(

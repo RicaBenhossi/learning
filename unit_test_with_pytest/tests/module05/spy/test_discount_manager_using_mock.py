@@ -1,7 +1,7 @@
 from unittest.mock import Mock, call
 
-from src.module05.spy.discounts import DiscountManager
-from src.module05.spy.model_objects import Product, User, DiscountData
+from module05.spy.discounts import DiscountManager
+from module05.spy.model_objects import Product, User, DiscountData
 
 
 def test_discount_for_users_with_mock_framework():

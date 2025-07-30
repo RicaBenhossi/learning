@@ -1,5 +1,5 @@
-from src.module05.spy.discounts import DiscountManager
-from src.module05.spy.model_objects import Product, DiscountData, User
+from module05.spy.discounts import DiscountManager
+from module05.spy.model_objects import Product, DiscountData, User
 
 
 # class StubNotifier:

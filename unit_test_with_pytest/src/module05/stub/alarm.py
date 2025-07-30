@@ -1,4 +1,4 @@
-from src.module05.stub.sensor import Sensor
+from module05.stub.sensor import Sensor
 
 
 class Alarm:

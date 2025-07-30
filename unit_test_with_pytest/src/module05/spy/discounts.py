@@ -1,4 +1,4 @@
-from src.module05.spy.model_objects import Product, DiscountData, User
+from module05.spy.model_objects import Product, DiscountData, User
 
 
 class DiscountManager:

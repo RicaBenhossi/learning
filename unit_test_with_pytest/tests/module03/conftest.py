@@ -1,6 +1,6 @@
 import pytest
 
-from src.module03.phonenumbers import Phonebook
+from module03.phonenumbers import Phonebook
 
 
 @pytest.fixture

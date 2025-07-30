@@ -1,6 +1,6 @@
 import io
 
-from src.module05.fake.html_pages import HtmlPagesConverter
+from module05.fake.html_pages import HtmlPagesConverter
 
 
 def test_convert_second_page():
