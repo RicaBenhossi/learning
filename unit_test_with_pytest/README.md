@@ -134,7 +134,7 @@ To see all the fixture of a test suite, run one of the commands bellow on the te
 PYTHONPATH='<your_source_code_dir>'
 ```
 ```shell
-$env:PYTHONPATH='src'
+$env:PYTHONPATH='supermarket_receipt'
 ```
 
 ### Parametrized Test
@@ -578,3 +578,255 @@ Sumarizing, test doubles are:
   - Similar to Stub, bit can asssert if the test fails. 
 - Mock
   - Similar to Spy but throws away an exception in the act part of the test, not in the assertion.
+
+## Approvals
+
+Is an alternative to `assert`. It allows us to compare 2 strings (but not only strings) through a diff.
+
+When you run it for the first time, it will create 2 files with your data to be compared with: 
+- **`your_test_file.your_test_case.received.txt`** is what the output that approval generated from your test case.
+- **`your_test_file.your_test_case.approved.txt`** is the already approved output you're waiting to receive from the test case
+
+The approval will compare this two files. If the content are the same, the test will pass.
+
+E.g. changing from assert to approval:
+
+Test case with assert:
+```python
+import pytest
+
+from src.module06.supermarket_receipt.model_objects import SpecialOfferType
+
+
+def test_no_discount(teller, cart, toothbrush, apples):
+    teller.add_special_offer(SpecialOfferType.TEN_PERCENT_DISCOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(apples, 2.5)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    assert 4.975 == pytest.approx(receipt.total_price(), 0.01)
+    assert list() == receipt.discounts
+    assert 1 == len(receipt.items)
+    receipt_item = receipt.items[0]
+    assert apples == receipt_item.product
+    assert 1.99 == receipt_item.price
+    assert 2.5 * 1.99 == pytest.approx(receipt_item.total_price, 0.01)
+    assert 2.5 == receipt_item.quantity
+```
+
+Test case with approval:
+```python
+import approvaltests
+
+from module06.supermarket_receipt.receipt_printer import ReceiptPrinter
+from src.module06.supermarket_receipt.model_objects import SpecialOfferType
+ 
+def test_no_discount(teller, cart, toothbrush, apples):
+    teller.add_special_offer(SpecialOfferType.TEN_PERCENT_DISCOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(apples, 2.5)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    receipts_as_string = ReceiptPrinter().print_receipt(receipt)
+    approvaltests.verify(receipts_as_string)
+
+```
+In the exemple above, we get rid of sveral assetions for just one approval. When we pass the `receipt_as_string` to 
+`approvaltests.verify`, it will create the `your_test_file.your_test_case.received.txt` to be compared with the 
+`your_test_file.your_test_case.approved.txt`.
+
+**OBS**: the `ReceiptPrinter().print_receipt(receipt)` is a class we created just to represent a receipt object as 
+string.
+
+In resume, a test case have three parts:
+![three_parts_of_a_test.png](resources/three_parts_of_a_test.png)
+
+When using approvals, we stil have these three parts, but intead of an assert, we have a diff conpasion:
+![three_parts_of_an_approval_test.png](resources/three_parts_of_an_approval_test.png)
+
+### Setup
+
+#### Reporter
+
+To use the approval properly, we need to pass the additiona argument `--approvaltests-use-reporter='PythonNative'` on 
+the command line. Otherwise, it will raise a `RuntimeError: This machine has no reporter configuration`.
+We can configure it on pycharm as well:
+![approvaltests_pycharm_setup.png](resources/approvaltests_pycharm_setup.png)
+
+#### Printer Design
+
+It's the most important to a successfull approval testing because is the class responsable to print all data we need to 
+compare.
+
+Advices to write a good printer
+- Lay out text on multiple lines;
+- Exclude irrelevant details, so your test will only fail with a good reason.
+- 
+If the test fails and you don't understand what's going on, it's a sign that you need to improve your printer 
+
+#### Approvaltests Config
+
+It's a good practice to have your approved_files in a different directory under your test directory (approved_files for 
+exemple). So the approvaltests needs to know where these files are, otherwise, it will create/look then in the same 
+directory the test case are.
+
+To do this, just create a `approvaltests_config.json` file in the directory and set on it a `subdirectory` option:
+```json
+{
+  "subdirectory": "approved_files"
+}
+```
+
+### Comparing Received and Approved files
+
+When running the approval for the first time, the test will fail. That's normal because there is no approved file yet. 
+So we must open both, `your_test_file.your_test_case.received.txt` and `your_test_file.your_test_case.approved.txt` 
+(preferencial in a diff tool), check if the received file contains all the infos you want to validate. If it's ok, just 
+apply the changes to the approved file. 
+
+Now, the `your_test_file.your_test_case.approved.txt` will contains the correct strings to be compared with 
+`your_test_file.your_test_case.received.txt`. If there is some difference between than, the test will fail.****
+
+### Advantages of using Approvals
+
+- Easier to understand failures, using a diff
+- Easier to update approved files with a tool
+- Cheaper test maintenance
+- Can simplify a test case, changing several assertions in only one approval
+
+### Verify All Aprovals
+
+We can use approvals to check a bunch of different combinations using `approvaltests.very_all_combinations`.
+
+```python
+import approvaltests
+
+from module06.gilded_rose.gilded_rose import Item, GildedRose
+
+
+def print_item(item):
+    return f"Item({item.name}, sell_in={item.sell_in}, quality={item.quality})"
+
+
+def test_update_quality():
+    item = Item("foo", 0, 0)
+    items = [item]
+
+    giled_rose = GildedRose(items)
+    giled_rose .update_quality()
+
+    approvaltests.verify(print_item(item))
+```
+
+The test case above tests only one combination for an item. If we have 5 itens, with 3 possibility of quality and sell 
+ins, the tests could turn into a mess.
+
+So, we can make s simple test case that can test all this variations.
+
+```python
+import approvaltests
+
+from module06.gilded_rose.gilded_rose import Item, GildedRose
+
+
+def print_item(item):
+    return f"Item({item.name}, sell_in={item.sell_in}, quality={item.quality})"
+
+
+def update_quality_printer(args, result):
+    return f"{args} => {print_item(result)}\n"
+
+
+def test_update_quality():
+    names = ["foo", "Aged Brie", "Backstage passes to a TAFKAL80ETC concert", "Sulfuras, Hand of Ragnaros"]
+    sell_ins = [0]
+    qualities = [0, 1, 2]
+
+    approvaltests.verify_all_combinations(
+        update_quality_for_item,
+        [names, sell_ins, qualities],
+        formatter=update_quality_printer
+    )
+
+
+def update_quality_for_item(foo, sell_in, quality):
+    item = Item(foo, sell_in, quality)
+    items = [item]
+    gilded_rose = GildedRose(items)
+    gilded_rose.update_quality()
+    return item
+```
+
+The test case above will run the method `update_quality_for_item` for eache item of the lists names, sell_ins and 
+qualities, combining their values. The approval file it wull generate is like this:
+```
+('foo', 0, 0) => Item(foo, sell_in=-1, quality=0)
+('foo', 0, 1) => Item(foo, sell_in=-1, quality=0)
+('foo', 0, 2) => Item(foo, sell_in=-1, quality=0)
+('Aged Brie', 0, 0) => Item(Aged Brie, sell_in=-1, quality=2)
+('Aged Brie', 0, 1) => Item(Aged Brie, sell_in=-1, quality=3)
+('Aged Brie', 0, 2) => Item(Aged Brie, sell_in=-1, quality=4)
+('Backstage passes to a TAFKAL80ETC concert', 0, 0) => Item(Backstage passes to a TAFKAL80ETC concert, sell_in=-1, quality=0)
+('Backstage passes to a TAFKAL80ETC concert', 0, 1) => Item(Backstage passes to a TAFKAL80ETC concert, sell_in=-1, quality=0)
+('Backstage passes to a TAFKAL80ETC concert', 0, 2) => Item(Backstage passes to a TAFKAL80ETC concert, sell_in=-1, quality=0)
+('Sulfuras, Hand of Ragnaros', 0, 0) => Item(Sulfuras, Hand of Ragnaros, sell_in=0, quality=0)
+('Sulfuras, Hand of Ragnaros', 0, 1) => Item(Sulfuras, Hand of Ragnaros, sell_in=0, quality=1)
+('Sulfuras, Hand of Ragnaros', 0, 2) => Item(Sulfuras, Hand of Ragnaros, sell_in=0, quality=2)
+```
+
+See that for every name, it runs 1 quality. If we insert a new sell_in value, it will generate us 12 more scenarios.
+
+The `approvaltests.verify_all_combinations` can help us improve our test coverage with very little addition of code. 
+However, it can improve the number of test cases and the time to run it. 
+
+
+## Code Coverage
+
+The Coverage Report shows us which lines of our code are executed by out tests. If a line is not being executed, it 
+could have bug in that your test is not able to catch.
+
+### Setup
+
+- Install `coverage` using uv or pip.
+
+### Running Coverage
+
+#### Terminal
+
+To run Coverage, just type `PYTHONPATH=../src coverage run -m pytest --approvaltests-use-reporter=PythonNative` in your 
+terminal. It will execute the tests, but generates a report to help us find lines of our code that's not being tested 
+yet.
+
+To see the report, just type `coverage report -m`:
+![coverage_report_terminal.png](resources/coverage_report_terminal.png)
+
+Or you can see a HTML version usig the command `coverage html`:
+![coverage_report_html.png](resources/coverage_report_html.png)
+
+In the HTML report, we can have more detailed information about the code coverage just clicking on the file. The red 
+lines shows us pieces of code that are not being tested.
+![coverage_report_html_detailed.png](resources/coverage_report_html_detailed.png)
+![coverage_report_html_detailed02.png](resources/coverage_report_html_detailed02.png)
+
+
+#### Pycharm
+
+Pycharm can also show us the coverge os our tests. We just have to RUN WITH COVERAGE:
+![pycharm_run_with_coverage.png](resources/pycharm_run_with_coverage.png)
+
+The results will be dispalyed in the Coverage session:
+![pycharm_coverage_session.png](resources/pycharm_coverage_session.png)
+
+As in the HTML file, clicking on the file will open it. Now we can check, directly in the file, which line is covered 
+and which is not, just looking to the gutter:
+![pycharm_coverage_in_file.png](resources/pycharm_coverage_in_file.png)
+
+
+### Branch Coverage
+
+Altough we get 100% coverage of our code, there might be some part of then that are note properly or fully tested in 
+all combinations. To ensure that we're not missing a spot, we can use branch coverage.
+
+Branch coverage marks the conditionals of your code that is covered but only in one way.
+
+![branch_coverage.png](resources/branch_coverage.png)

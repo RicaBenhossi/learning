@@ -8,4 +8,15 @@ dependencies = []
 [dependency-groups]
 dev = [
     "pytest>=8.4.1",
+    "approvaltests",
+    "pytest-approvaltests",
+    "coverage"
 ]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", ".venv"]
+
+[tool.coverage.report]
+#omit = ["tests/*", ".venv"]
+skip_empty = true

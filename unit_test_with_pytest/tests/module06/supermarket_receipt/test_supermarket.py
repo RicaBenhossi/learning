@@ -1,0 +1,64 @@
+import approvaltests
+import pytest
+
+from module06.supermarket_receipt.model_objects import SpecialOfferType
+from receipt_printer import ReceiptPrinter
+
+
+@pytest.mark.skip("Old version that was refactored")
+def test_no_discount_with_assert(teller, cart, toothbrush, apples):
+    teller.add_special_offer(SpecialOfferType.TEN_PERCENT_DISCOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(apples, 2.5)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    assert 4.975 == pytest.approx(receipt.total_price(), 0.01)
+    assert list() == receipt.discounts
+    assert 1 == len(receipt.items)
+    receipt_item = receipt.items[0]
+    assert apples == receipt_item.product
+    assert 1.99 == receipt_item.price
+    assert 2.5 * 1.99 == pytest.approx(receipt_item.total_price, 0.01)
+    assert 2.5 == receipt_item.quantity
+
+def test_no_discount_with_approval(teller, cart, toothbrush, apples):
+    teller.add_special_offer(SpecialOfferType.TEN_PERCENT_DISCOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(apples, 2.5)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    receipt_as_string = ReceiptPrinter().print_receipt(receipt)
+    approvaltests.verify(receipt_as_string)
+
+def test_ten_percent_discount(teller, cart, toothbrush):
+    teller.add_special_offer(SpecialOfferType.TEN_PERCENT_DISCOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(toothbrush, 2)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    approvaltests.verify(ReceiptPrinter().print_receipt(receipt))
+
+def test_three_for_two_discount(teller, cart, toothbrush):
+    teller.add_special_offer(SpecialOfferType.THREE_FOR_TWO, toothbrush, 10.0)
+    cart.add_item_quantity(toothbrush, 3)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    approvaltests.verify(ReceiptPrinter().print_receipt(receipt))
+
+def test_two_for_amount_discount(teller, cart, toothbrush):
+    teller.add_special_offer(SpecialOfferType.TWO_FOR_AMOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(toothbrush, 3)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    approvaltests.verify(ReceiptPrinter().print_receipt(receipt))
+
+def test_five_for_amount_discount(teller, cart, toothbrush):
+    teller.add_special_offer(SpecialOfferType.FIVE_FOR_AMOUNT, toothbrush, 10.0)
+    cart.add_item_quantity(toothbrush, 5)
+
+    receipt = teller.checks_out_articles_from(cart)
+
+    approvaltests.verify(ReceiptPrinter().print_receipt(receipt))
+
