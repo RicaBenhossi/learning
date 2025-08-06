@@ -777,8 +777,7 @@ qualities, combining their values. The approval file it wull generate is like th
 See that for every name, it runs 1 quality. If we insert a new sell_in value, it will generate us 12 more scenarios.
 
 The `approvaltests.verify_all_combinations` can help us improve our test coverage with very little addition of code. 
-However, it can improve the number of test cases and the time to run it. 
-
+However, it can improve the number of test cases and the time to run it.
 
 ## Code Coverage
 
@@ -824,9 +823,26 @@ and which is not, just looking to the gutter:
 
 ### Branch Coverage
 
-Altough we get 100% coverage of our code, there might be some part of then that are note properly or fully tested in 
+Although we get 100% coverage in our code, there might be some part of then that are not properly or fully tested in 
 all combinations. To ensure that we're not missing a spot, we can use branch coverage.
 
-Branch coverage marks the conditionals of your code that is covered but only in one way.
+Branch coverage marks the conditionals of the code that is covered but only in one way.
 
 ![branch_coverage.png](resources/branch_coverage.png)
+
+In the command line, we can just type `--branch` to run it. In Pycharm, got to 
+Settings -> Build, Execution, Deployment -> Coverage -> Python Coverage and check the option Branch coverage
+
+It can help showing us there are some spots in our code that is not tested yet.
+
+However, branch coverage can increase the execution time of our tests. Using the exemple in this session, to increase 
+`GildedRose` coverage, we have to do more combinations which will increase our test cases to 80 😱.
+
+![improved_gilded_rose_tests.png](resources/improved_gilded_rose_tests.png)
+
+
+
+## Mutation Testing
+
+Sometimes, even when we get 100% of code coverage, it doesn't mean that we have good tests. Mutation tests can show us 
+piece of code that are not good enough, introducing some little changes in our code to check if the tests will fail. 

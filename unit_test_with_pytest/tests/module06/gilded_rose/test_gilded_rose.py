@@ -13,8 +13,8 @@ def update_quality_printer(args, result):
 
 def test_update_quality():
     names = ["foo", "Aged Brie", "Backstage passes to a TAFKAL80ETC concert", "Sulfuras, Hand of Ragnaros"]
-    sell_ins = [0]
-    qualities = [0, 1, 2]
+    sell_ins = [-1, 0, 6, 11]
+    qualities = [0, 1, 2, 40, 50]
 
     approvaltests.verify_all_combinations(
         update_quality_for_item,
