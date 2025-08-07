@@ -648,7 +648,7 @@ When using approvals, we stil have these three parts, but intead of an assert, w
 
 #### Reporter
 
-To use the approval properly, we need to pass the additiona argument `--approvaltests-use-reporter='PythonNative'` on 
+To use approval properly, we need to pass the additiona argument `--approvaltests-use-reporter='PythonNative'` on 
 the command line. Otherwise, it will raise a `RuntimeError: This machine has no reporter configuration`.
 We can configure it on pycharm as well:
 ![approvaltests_pycharm_setup.png](resources/approvaltests_pycharm_setup.png)
@@ -820,8 +820,11 @@ As in the HTML file, clicking on the file will open it. Now we can check, direct
 and which is not, just looking to the gutter:
 ![pycharm_coverage_in_file.png](resources/pycharm_coverage_in_file.png)
 
+### Spot Missing Tests
 
-### Branch Coverage
+Use Branch Coverage and Mutation tests to find pieces od the code that is not properly covered by tests.
+
+#### Branch Coverage
 
 Although we get 100% coverage in our code, there might be some part of then that are not properly or fully tested in 
 all combinations. To ensure that we're not missing a spot, we can use branch coverage.
@@ -830,19 +833,78 @@ Branch coverage marks the conditionals of the code that is covered but only in o
 
 ![branch_coverage.png](resources/branch_coverage.png)
 
+Branch coverage are particulary helpfull when there is no else clause in our conditional. As there is no other 
+alternative to be marked as RED (else), we can't see if there is a problem, until we run Branch Coverage.
+
+![branch_cover_no_else.png](resources/branch_cover_no_else.png)
+
 In the command line, we can just type `--branch` to run it. In Pycharm, got to 
 Settings -> Build, Execution, Deployment -> Coverage -> Python Coverage and check the option Branch coverage
 
 It can help showing us there are some spots in our code that is not tested yet.
 
 However, branch coverage can increase the execution time of our tests. Using the exemple in this session, to increase 
-`GildedRose` coverage, we have to do more combinations which will increase our test cases to 80 😱.
+`GildedRose` coverage, we have to do more combinations which will increase our test cases up to 80 😱.
 
 ![improved_gilded_rose_tests.png](resources/improved_gilded_rose_tests.png)
 
-
-
-## Mutation Testing
+#### Mutation Testing
 
 Sometimes, even when we get 100% of code coverage, it doesn't mean that we have good tests. Mutation tests can show us 
-piece of code that are not good enough, introducing some little changes in our code to check if the tests will fail. 
+piece of code that doesn't have good tests, introducing some little changes in our code to check if the tests fails. 
+like changing a less or equal sign (<=) to just less (<) or changing the sign of a calculation (+ changes to -) for 
+exemple.
+
+If our test case fails, that's good... We've killed the mutation. If the test passes, means that the mutant survived, 
+and our test case is not good enough.
+
+![mutation_testing.png](resources/mutation_testing.png)
+
+We can make mutation tests by hand, just deliberatly introducing some bugs into our code and test if the mutant 
+survives. 
+
+Although, there are planty tools for automate Mutation tests:
+- Pytest-Mutagen
+- MutPy
+- MutMut
+- Mutatest
+- Cosmic Ray
+
+#### Pairwise Testing 
+
+Now we have killed all the mutants in our code and have 100% coverage in our class 🥳🎉!
+
+But, it comes with a cost. We have a test suite with up to 120 test cases. That´s a lot 😱😱😱!!
+
+Having all mutants of our code properly tested and 100% of coverage comes with a price: it can be too computation intensive 
+to run all these tests all the time.
+
+When talking about tests, it's always a trade-off: as more test we have, more coverage we have, but it takes more time 
+to run the test suite.
+
+In order to have a good coverage and safety, but not taking too long to run the tests, we need to balance and choose 
+the tests cases that are most relevant to our test.
+
+For this we can use `approvaltests.verify_best_covering_pairs` instead of `approvaltests.verify_all_combinations`. This 
+function will select some test cases, but keep giving you a good coverage.
+
+```python
+def test_update_quality():
+    names = ["foo", "Aged Brie", "Backstage passes to a TAFKAL80ETC concert", "Sulfuras, Hand of Ragnaros"]
+    sell_ins = [-1, 0, 1, 6, 11]
+    qualities = [0, 1, 2, 48, 49, 50]
+
+    approvaltests.verify_best_covering_pairs(
+        update_quality_for_item,
+        [names, sell_ins, qualities],
+        formatter=update_quality_printer
+```
+
+It will cut down our test cases from 120 to 30, but keep giving us a 97% coverage. So, we "lost" only 3% of coverage in 
+order to have a faster test suite. In this teste, one mutant survived too, but is a very low price to pay for having a 
+fast test suite.
+
+**OBS**: Bear in mind that is up to you to decide whether to have faster tests or the very best coverage. Systems that 
+must be precise and very reliable like aerospacial, navigation or health, should be more protected and bug free 
+than have a test suite that runs faster 😉.
+
