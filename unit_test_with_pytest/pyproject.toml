@@ -10,7 +10,11 @@ dev = [
     "pytest>=8.4.1",
     "approvaltests",
     "pytest-approvaltests",
-    "coverage"
+    "coverage",
+    "requests",
+    "vcrpy",
+    "pytest-recording",
+    "urllib3==1.26.15"
 ]
 
 [tool.coverage.run]

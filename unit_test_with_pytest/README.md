@@ -908,3 +908,357 @@ fast test suite.
 must be precise and very reliable like aerospacial, navigation or health, should be more protected and bug free 
 than have a test suite that runs faster 😉.
 
+## Testing Code That's Difficult to Test
+
+There are some code that make writing tests very difficult. Some things that make a code hard to test are:
+- Poor separation of concerns;
+- Lack of encapsulation;
+- Poor structures;
+- Needs refactoring.
+
+In opposite of that, a code that's easy to test usually have:
+- Pure functions, that have a logic without side effects or external dependencies;
+- Code we can easily isolate with a test double;
+
+### Peel Strategy
+
+The peel strategy is a helpfull technique to test "mostly logic" parts of the code. It consists in refactoring the
+code, isolating a piece of code that easier to test into a functions, a pure function. So we can test it properly.
+
+![peel_strategy.png](resources/peel_strategy.png)
+![peel_strategy_refactored.png](resources/peel_strategy_refactored.png)
+
+### Slice Strategy
+
+The slice strategy help us when the hard-to-test part of the code is in the middle. In this case we should isolate the
+parts that is hard to test first, isolating side effects. Then we refactor the easy parts in order to make it testable.
+
+![slice_strategy.png](resources/slice_strategy.png)
+![slice_strategy_refactored.png](resources/slice_strategy_refactored.png)
+
+A piece of example code.
+
+```python
+import datetime
+
+import scorer
+from scorer import IceCream
+
+
+def print_sales_forecasts():
+    names = ["Steve", "Julie", "Francis"]
+    now = datetime.datetime.now()
+    print(f"Forecast at time {now}")
+    for name in names:
+        if name == "Steve":
+            scorer.flavour = IceCream.Strawberry
+        else:
+            scorer.update_selection()
+        score = scorer.get_sales_forecast()
+        print(f"{name} score: {score}")
+```
+
+When run the tests, the `scorer.update_selection()` breakes it because it has a randon choices os flavours. It returns 
+Vanilla, Chocolate or Strawberry, so we can't predict what it will be used to properly test it. 
+
+Same thing to the code `now = datetime.datetime.now()`. Every time we run the tests, it will get a new date time.
+
+```python
+from forecasts import print_sales_forecast
+
+
+def test_sales_forecasts(capsys):
+    print_sales_forecasts()
+    output = capsys.readouterr()
+    assert output.out == "" 
+```
+
+For the `now = datetime.datetime.now()` we cant use the `capsys`, a fixture that allows us to spy on the content of an 
+output. When running this test above, it will fail, but will also give us the value of `datetime.datetime.now()`, so we 
+can mock this value.
+
+```python
+from forecasts import print_sales_forecast
+
+
+def test_sales_forecasts(capsys):
+    print_sales_forecasts(now=datetime.datetimefromisoformat('2025-08-04 05:49:34.145035'))
+    output = capsys.readouterr()
+    assert output.out == "" 
+```
+
+Now we have to refactor the function `print_sales_forecasts` in the main class to receive the current datetime as an
+optional parameter. Now the `print_sales_forecasts` doesn't deppend exclusively of the global `datetime.datetime.now()` 
+anymore.
+
+```python
+import datetime
+
+import scorer
+from scorer import IceCream
+
+
+def print_sales_forecasts(now=None):
+    names = ["Steve", "Julie", "Francis"]
+    now = now or datetime.datetime.now()
+    print(f"Forecast at time {now}")
+    for name in names:
+        if name == "Steve":
+            scorer.flavour = IceCream.Strawberry
+        else:
+            scorer.update_selection()
+        score = scorer.get_sales_forecast()
+        print(f"{name} score: {score}")
+```
+
+Now, we have to slice the other point of the code that is hard to test: `scorer.update_selection()`. This line is hard 
+to test, and it's right in the middle of the logic. The problem here is that this method returns a random flavor, so 
+our tests can pass  sometimes and fail others.
+
+The strategy is to isolate this call in a local function `update_selection` so we can use a stub in on our tests.
+
+```python
+import datetime
+
+import scorer
+from scorer import IceCream
+
+
+def print_sales_forecasts(now=None):
+    def update_selection():
+        scorer.update_selection()
+
+    names = ["Steve", "Julie", "Francis"]
+    now = now or datetime.datetime.now()
+    print(f"Forecast at time {now}")
+    for name in names:
+        if name == "Steve":
+            scorer.flavour = IceCream.Strawberry
+        else:
+            update_selection()
+        score = scorer.get_sales_forecast()
+        print(f"{name} score: {score}")
+```
+
+This refactoring doesn't solve the problem, but allow us now to use the peel strategy. We can move the rest of the code 
+to a new function `print_sales_forecast_and_update_selection`. One of the arguments for this new funtion is a reference 
+to the inner function we created earlier `update_selection`. 
+
+That allow us to replace it for a test double in our test suite. 
+
+```python
+import datetime
+
+import scorer
+from scorer import IceCream
+
+
+def print_sales_forecasts(now=None):
+    def update_selection():
+        scorer.update_selection()
+
+    print_sales_forecast_and_update_selection(now, update_selection)
+
+
+def print_sales_forecast_and_update_selection(now, update_selection):
+    names = ["Steve", "Julie", "Francis"]
+    now = now or datetime.datetime.now()
+    print(f"Forecast at time {now}")
+    for name in names:
+        if name == "Steve":
+            scorer.flavour = IceCream.Strawberry
+        else:
+            update_selection()
+        score = scorer.get_sales_forecast()
+        print(f"{name} score: {score}")
+```
+
+Test case:
+
+```python
+import datetime
+
+import approvaltests
+
+from forecast import print_sales_forecasts, print_sales_forecast_and_update_selection
+from scorer import IceCream
+import scorer
+
+def stub_update_selection():
+    scorer.flavor = IceCream.Vanilla
+
+def test_sales_forecast(capsys):
+    print_sales_forecast_and_update_selection(
+        now=datetime.datetime.fromisoformat('2025-08-04 05:49:34.145035'),
+        update_selection=stub_update_selection)
+    output = capsys.readouterr()
+    approvaltests.verify(output.out)
+```
+
+Now, if we run our tests, it should pass consistently. 
+
+Although the coverage shows us the lack of tests in the `print_sales_forecasts` function, it shouldn't be a problem 
+because it has no business rules anymore. All the logic was transfered to `print_sales_forecast_and_update_selection` 
+function, and that's were the tests should be focused on.
+
+### Monkeypatching
+
+"Monkeypatching" is another name for metaprogramming. It's when you dinamically change an attribute or a method at 
+runtime for something else in order to minimize side effects in our test. It can be a very usefull way to insert a 
+test double.
+
+Let's get an exemple:
+
+```python
+import enum
+import random
+import requests
+
+
+class IceCream(enum.Enum):
+    Strawberry = 1
+    Chocolate = 2
+    Vanilla = 3
+
+
+flavour = None
+
+
+def get_score():
+    sunny_today = lookup_weather()
+    return get_score_with_weather_and_flavour(sunny_today, flavour)
+
+
+def get_score_with_weather(sunny_today, current_flavour=None):
+    if current_flavour == IceCream.Strawberry:
+        if sunny_today:
+            return 10
+        else:
+            return 5
+    elif current_flavour == IceCream.Chocolate:
+        return 6
+    elif current_flavour == IceCream.Vanilla:
+        if sunny_today:
+            return 7
+        else:
+            return 5
+    else:
+        return -1
+
+
+def lookup_weather(location=None):
+    location = location or (59.3293, 18.0686)  # default to Stockholm
+    days_forward = 0
+    params = {"latitude": location[0], "longitude": location[1], "days_forward": days_forward}
+    weather_app = "http://127.0.0.1:3005"
+    response = requests.get(weather_app + "/forecast", params=params)
+    if response.status_code != 200:
+        raise RuntimeError("Weather service unavailable")
+    forecast = response.json()
+    return bool(forecast["weather"]["main"] == "Sunny")
+
+```
+
+Look that we have a request to an API to get the weather in the `lookup_wheather` method. It receives a json and a http 
+status code as a response. If our test calls this API when running and this API is not working properly, or return a 
+real weather that we're not expecting, it may break the test. So let's monkeypatch it.
+
+```python
+import approvaltests
+import pytest
+import requests
+
+import scorer
+from scorer import get_score, IceCream, get_score_with_weather_and_flavour
+
+
+class StubWeatherServiceResponse:
+    def __init__(self):
+        self.status_code = 200
+
+    def json(self):
+        return {"weather": {"main": "Sunny"}}
+
+
+def test_lookup_weather_default_location(monkeypatch):
+    def stub_requests_get(*args, **kwargs):
+        return StubWeatherServiceResponse()
+
+    monkeypatch.setattr(requests, "get", stub_requests_get)
+    assert scorer.lookup_weather() == True
+
+```
+
+The function `test_lookup_weather_default_location` receives a `monkeypatch` as a parameter and that will be the stub 
+for our request. We create the class `StubWeatherServiceResponse` that will replace the response we receive from real 
+service. 
+
+To use the monkeypatch we need to set the atrributes to it (`setattr`), containning the object we want to stub 
+(`requests`), the method we want to replace ("get") and what we want ir to return (`stub_requests_get` that is the 
+object that will mock our response).
+
+Inside the context of our test, when `scorer.lookup_weather()` calls the `request.get` it will be replaced by our 
+monkeypatch that will replace the real request and return our fake object.
+
+#### Pitfalls with Monkeypatching
+
+Although very usefull, monkeypatching cam make our tests hard to read and understand, making you ended up not testing 
+what you think you are testing.
+
+Test doubles get out of sync with the real object quite easily, and you can find your test is passing but the real 
+object has a changed behaviour that your mock doesn't. In this case, your test double can hide this problem from you.
+Be aware.
+
+Also, test doubles can hinder refactoring. Renamming a method may cause our test to break, but can be worse if you 
+create new objects and move methods around.
+
+### Self-Initialize Fake
+
+It's another monkeypatch fake, but instead of write it by hand, like the exemple before, you just record it from the 
+real API once and then use these recorded response as deouble.
+
+In order to use it, we need to install 2 new dependencies on our tests:
+
+```
+vcrpy
+pytest-recording
+```
+
+After install it, we need to add a new parameter to python execution:
+![parameter_record_mode.png](resources/parameter_record_mode.png)
+
+The mode `once` will record any new interaction the first time and then use the recorded results, the cassettes to 
+replay them.
+
+It will create a yaml file with te same name of our test case, with all the response from the API we're mocking.
+![vcr_file_created.png](resources/vcr_file_created.png)
+
+Now, let's go to the code:
+
+```python
+import approvaltests
+import pytest
+import requests
+
+import scorer
+from scorer import get_score, IceCream, get_score_with_weather_and_flavour
+
+@pytest_mark_vcr
+def test_lookup_weather_not_sunny():
+    location_aare = (63.3990, 13.0815)
+    assert scorer.lookup_weather(location_aare) == False
+```
+
+Now, with vcr, we just assert it from the original scorer object, and it will use the yaml file as a response.
+
+If in the future the server changes the response, we can just delete the cassete and run it again to get a new one.
+
+#### Pitfalls with Self-Initialize Fake
+
+It's still using a monkeypatch underneat, but the api is very stable. This approach makes the test more readable, 
+strait forward and simple to undertand.
+
+Your cassets files might get out of date compared with the real server. That's the big danger, altough it is realtively 
+easy to rerecord it again. If you have access to the API, from time to time, delete the cassetes and generate it again.
+
+As all test double, it can hinder refactoring. However, sefl-initialize test using vcr, make refactoring much easier.
